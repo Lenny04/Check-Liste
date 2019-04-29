@@ -15,27 +15,27 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
     var lists = [List]()
     var currentIndex = 0
     var refreshControl: UIRefreshControl!
-    @IBOutlet weak var tableView2: UITableView!
+    @IBOutlet weak var tableView: UITableView!
     var ref: DocumentReference!
     lazy var db = Firestore.firestore()
-    var quoteListener: ListenerRegistration!
+    var quoteListenerLists: ListenerRegistration!
     override func viewDidAppear(_ animated: Bool) {
-        self.tableView2.reloadData()
+        self.tableView.reloadData()
     }
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView2.delegate = self
-        tableView2.dataSource = self
+        tableView.delegate = self
+        tableView.dataSource = self
         let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(longPress(_:)))
-        tableView2.addGestureRecognizer(longPressRecognizer)
+        tableView.addGestureRecognizer(longPressRecognizer)
         refreshControl = UIRefreshControl()
         refreshControl.attributedTitle = NSAttributedString(string: "Refreshing")
         refreshControl.addTarget(self, action: #selector(OversigtViewController.refresh), for:.valueChanged)
-        tableView2.addSubview(refreshControl)
+        tableView.addSubview(refreshControl)
         let settings = db.settings
         settings.areTimestampsInSnapshotsEnabled = true
         db.settings = settings
-        quoteListener = db.collection("Lister").addSnapshotListener { (querySnapshot, err) in
+        quoteListenerLists = db.collection("Lister").addSnapshotListener { (querySnapshot, err) in
             if err != nil {
                 //print("Error getting documents: \(err)")
             } else {
@@ -50,11 +50,11 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
                                 self.lists[self.lists.count-1].setListName(a: value as! String)
                                 break
                             default:
-                                self.tableView2.reloadData()
+                                self.tableView.reloadData()
                             }
                         }
-                        //print("Document: \(self.lists[self.lists.count-1].getListName()), added in firestore")
-                        self.tableView2.reloadData()
+                        //print("Document added in firestore")
+                        self.tableView.reloadData()
                     }
                     if(diff.type == .modified) {
                         //print("Modified the document in firestore")
@@ -66,28 +66,26 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
                             }
                         }
                         self.lists.sort {$0.getListName() < $1.getListName()}
-                        self.tableView2.reloadData()
+                        self.tableView.reloadData()
                     }
                     if(diff.type == .removed) {
                         //print("Document removed from firestore")
-                        self.tableView2.reloadData()
+                        self.tableView.reloadData()
                     }
                     
                 }
                 self.lists.sort {$0.getListName() < $1.getListName()}
             }
         }
-        self.tableView2.reloadData()
-        // Do any additional setup after loading the view, typically from a nib.
+        self.tableView.reloadData()
 }
     
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
     }
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        quoteListener.remove()
+        quoteListenerLists.remove()
     }
     @IBAction func tilføjKnap(sender: AnyObject) {
         let alertController = UIAlertController(title: "Tilføj ny liste", message: "", preferredStyle: .alert)
@@ -125,7 +123,7 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
         alertController.addAction(action1)
         alertController.addAction(action2)
         self.present(alertController, animated: true, completion: nil)
-        tableView2.reloadData()
+        tableView.reloadData()
     }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return self.lists.count
@@ -150,7 +148,7 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
                 }
             }
             self.lists.remove(at: indexPath.row)
-            self.tableView2.reloadData()
+            self.tableView.reloadData()
         })
         return [deleteRowAction]
     }
@@ -160,13 +158,13 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
         tableView.deselectRow(at: indexPath, animated: true)
     }
     @objc func refresh() {
-        tableView2.reloadData()
+        tableView.reloadData()
         refreshControl.endRefreshing()
     }
     @objc func longPress(_ guesture: UILongPressGestureRecognizer) {
         if guesture.state == UIGestureRecognizer.State.began {
-            let point = guesture.location(in: tableView2)
-            let indexPath = tableView2.indexPathForRow(at: point)
+            let point = guesture.location(in: tableView)
+            let indexPath = tableView.indexPathForRow(at: point)
             currentIndex = indexPath!.row
             let editInfo = UIAlertController(title: nil, message: "List Info", preferredStyle: UIAlertController.Style.alert)
             
@@ -187,7 +185,7 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
                         }
                     })
                 }
-                self.tableView2.reloadData()
+                self.tableView.reloadData()
             })
             
             editInfo.addTextField { (textField0) in
@@ -203,13 +201,10 @@ class OversigtViewController: UIViewController, UITableViewDelegate, UITableView
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if (segue.identifier == "toListItem") {
             if let destinationVC = segue.destination as? ViewController{
-                currentIndex = (tableView2.indexPathForSelectedRow?.row)!
+                currentIndex = (tableView.indexPathForSelectedRow?.row)!
                 destinationVC.listForSegue.setListName(a: self.lists[currentIndex].getListName())
                 destinationVC.listForSegue.setKeyID(c: self.lists[currentIndex].getKeyID())
             }
         }
     }
 }
-//                for document in querySnapshot!.documents {
-//                    print("ID: \(document.documentID) => DATA: \(document.data())")
-//                }

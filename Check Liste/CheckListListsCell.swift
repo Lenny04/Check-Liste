@@ -12,6 +12,5 @@ class CheckListListsCell: UITableViewCell {
     @IBOutlet var label: UILabel!
     override func awakeFromNib() {
         super.awakeFromNib()
-        // Initialization code
     }
 }

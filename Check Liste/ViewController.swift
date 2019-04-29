@@ -12,10 +12,8 @@ import Firebase
 import FirebaseDatabase
 import FirebaseAuth
 import FirebaseFirestore
-import Floaty
-class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate, FloatyDelegate {
-    var list = [ListItem]()
-    var sortedList = [ListItem]()
+class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, UITextFieldDelegate {
+    var list = [ListItem](), sortedList = [ListItem]()
     var currentIndex = 0
     var refreshControl: UIRefreshControl!
     var listForSegue = List(listName: "", keyID: "")
@@ -25,8 +23,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     var lastUpdateLabel = UILabel()
     var ref: DocumentReference!
     lazy var db = Firestore.firestore()
-    var quoteListener: ListenerRegistration!
-    //var f = Floaty()
+    var quoteListenerElements: ListenerRegistration!
     var visibleRows = [Int]()
     let filter : UIImage = UIImage(named: "Filter")!
     let filtered : UIImage = UIImage(named: "Filtered")!
@@ -37,48 +34,30 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // Tableview settings
         tableView1.delegate = self
         tableView1.dataSource = self
         let longPressRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(longPress(_:)))
         tableView1.addGestureRecognizer(longPressRecognizer)
+        
+        // Refresh controller
         refreshControl = UIRefreshControl()
         refreshControl.attributedTitle = NSAttributedString(string: "Refreshing")
         refreshControl.addTarget(self, action: #selector(ViewController.refresh), for:.valueChanged)
         tableView1.addSubview(refreshControl)
+        
         self.navigationItem.title = listForSegue.getListName()
         let settings = db.settings
         settings.areTimestampsInSnapshotsEnabled = true
         db.settings = settings
         let tap = UITapGestureRecognizer(target: self, action: #selector(tableTapped))
         tableView1.addGestureRecognizer(tap)
-//        f.addItem("Sorter efter fuldførte", icon: UIImage(named: "Checkmark.png"), titlePosition: .left) { (item) in
-//            if(item.title == "Sorter efter fuldførte"){
-//                self.list.sort {!$0.getchecked() && $1.getchecked()}
-//                self.tableView1.reloadData()
-//                item.title = "Sorter efter alfabetisk"
-//                item.icon = UIImage(named: "ABC")
-//            }
-//            else if(item.title == "Sorter efter alfabetisk"){
-//                self.list.sort {$0.getItemDescription() < $1.getItemDescription()}
-//                self.tableView1.reloadData()
-//                item.title = "Sorter efter fuldførte"
-//                item.icon = UIImage(named: "Checkmark.png")
-//            }
-//            self.f.close()
-//        }
-//        f.addItem("Tilføj nyt element", icon: UIImage(named: "write_new"), titlePosition: .left) { (item) in
-//            self.tilføjNytElement()
-//            self.f.close()
-//        }
-//        f.itemTitleColor = UIColor.white
-//        f.fabDelegate = self
-//        self.view.addSubview(f)
-        quoteListener = db.collection("Lister/\(listForSegue.getKeyID())/Elementer").addSnapshotListener { (querySnapshot, err) in
+        quoteListenerElements = db.collection("Lister/\(listForSegue.getKeyID())/Elementer").addSnapshotListener { (querySnapshot, err) in
             if err != nil {
                 //print("Error getting documents: \(err)")
             } else {
                 querySnapshot?.documentChanges.forEach { diff in
-//                    print("Current index at fetching: \(self.currentIndex)")
                     if (diff.type == .added){
                         self.list.append(ListItem(itemDescription: "", checked: false, keyID: diff.document.documentID))
                         let value1 = diff.document.data() as NSDictionary
@@ -95,7 +74,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                                 self.tableView1.reloadData()
                             }
                         }
-                        //print("Document: \(self.list[self.list.count-1].getItemDescription()), added in firestore")
+                        //print("Document added in firestore")
                         self.tableView1.reloadData()
                         self.updateLabel()
                     }
@@ -106,8 +85,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                         for (key, value) in value1 {
                             let notenu = key as! String
                             if(notenu == "Navn"){
-                                //var changedIndex = self.list.first(where: { $0.getKeyID() == diff.document.documentID })?.getKeyID()
-                                //var c = self.list.index{$0.getKeyID() === diff.document.documentID}
                                 self.list[changedIndex!].setItemDescription(a: value as! String)
                             }
                             else if(notenu == "Checked Status"){
@@ -129,7 +106,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 for item in self.list {
                     if(item.getchecked() == false){
                         self.sortedList.append(ListItem(itemDescription: item.getItemDescription(), checked: false, keyID: item.getKeyID()))
-//                        print("Appending: \(item.getItemDescription()) to sorteList")
                     }
                     else{
                         
@@ -158,7 +134,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        quoteListener.remove()
+        quoteListenerElements.remove()
     }
     @IBAction func tilføjKnap(sender: AnyObject) {
         tilføjNytElement()
@@ -175,11 +151,8 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         let cell = tableView1.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as! CheckListCell
         cell.checkBox.tag = indexPath.row
         cell.checkBox.addTarget(self, action: #selector(ViewController.checkBoxIndex(sender:)), for: UIControl.Event.valueChanged)
-//        print("Current index cell for row at: \(self.currentIndex)")
         if(filteredStatus == true){
-//            print("Count: \(sortedList.count)")
             if(!sortedList.isEmpty){
-//                print("Indexpath: \(indexPath.row)")
                 cell.checkBoxtext.text = sortedList[indexPath.row].getItemDescription()
                 if(sortedList[indexPath.row].checked == true){
                     cell.checkBox.setCheckState(M13Checkbox.CheckState.checked, animated: true)
@@ -211,13 +184,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             cell.contentView.addSubview(cell.checkBox)
             
         }
-        
-        //print(tableView.indexPathsForVisibleRows!)
-//        let dic = tableView.indexPathsForVisibleRows!
-//        visibleRows = []
-//        for d in dic{
-//            visibleRows.append(d.row)
-//        }
         updateLabel()
         return cell
     }
@@ -225,13 +191,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     func tableView(_ tableView: UITableView, editActionsForRowAt indexPath: IndexPath) -> [UITableViewRowAction]? {
         let cIndex = indexPath.row
-        //let numberInList = self.list.count
-//        if(cIndex == visibleRows.last!-3){
-//            self.f.paddingY = 130
-//        }
-//        else if(cIndex == visibleRows.last!-1 || cIndex == visibleRows.last!-2){
-//            self.f.paddingY = 100
-//        }
         let deleteRowAction = UITableViewRowAction(style: UITableViewRowAction.Style.default, title: "Slet", handler:{action, indexpath in
             var listElementKey = ""
             if self.filteredStatus == true {
@@ -259,8 +218,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         //let cell = tableView1.dequeueReusableCell(withIdentifier: "Cell", for: indexPath) as! CheckListCell
         let selectedCell = tableView.cellForRow(at: indexPath as IndexPath)! as! CheckListCell
-        //selectedCell.checkBox.setCheckState(M13Checkbox.CheckState.checked, animated: true)
-//        print("Current index at did select: \(self.currentIndex)")
         cellIsClicked(a: indexPath.row)
         tableView.deselectRow(at: indexPath, animated: true)
         tableView1.reloadData()
@@ -291,18 +248,15 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             itemDescription = self.sortedList[a].getItemDescription()
             listKey = self.sortedList[a].getKeyID()
             updatedCheckStatus = self.sortedList[a].getchecked()
-//            print("\(a): \(self.sortedList[a].getItemDescription())")
             self.sortedList.remove(at: a)
         }
         else{
             currentIndex = a
             if(list[a].getchecked() == false){
                 list[a].setChecked(b: true)
-                //print("Checked status: \(list[a].getItemDescription()): \(list[a].getchecked())")
             }
             else{
                 list[a].setChecked(b: false)
-                //print("Checked status: \(list[a].getItemDescription()): \(list[a].getchecked())")
             }
             itemDescription = self.list[a].getItemDescription()
             listKey = self.list[a].getKeyID()
@@ -317,11 +271,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             }
         })
         updateLabel()
-//        print("Current index at cell clicked: \(self.currentIndex)")
     }
     @objc func refresh() {
         tableView1.reloadData()
-        //self.f.paddingY = 64
         refreshControl.endRefreshing()
     }
     @objc func tableTapped(tap:UITapGestureRecognizer){
@@ -332,7 +284,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             tableView1.deselectRow(at: path!, animated: true)
             tableView1.reloadData()
         }
-        //self.f.paddingY = 14
     }
     @objc func longPress(_ guesture: UILongPressGestureRecognizer) {
         if guesture.state == UIGestureRecognizer.State.began {
@@ -344,8 +295,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             else{
                 
             }
-//            print(self.list[currentIndex].getItemDescription())
-//            print("Amount: \(self.sortedList.count):  \(self.sortedList[0].getItemDescription())")
             let editInfo = UIAlertController(title: nil, message: "Info", preferredStyle: UIAlertController.Style.alert)
             
             let cancelAction = UIAlertAction(title: "Cancel", style: .destructive, handler: { (action) -> Void in
@@ -379,7 +328,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             })
             
             editInfo.addTextField { (textField0) in
-                //textField0.text = String(self.allBudgets[(indexPath?.row)!].getName())
                 if(self.filteredStatus == true){
                     textField0.text = self.sortedList[(indexPath?.row)!].getItemDescription()
                 }
